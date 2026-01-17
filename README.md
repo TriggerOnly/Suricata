@@ -1,10 +1,10 @@
-# Suricata
+## Suricata
 Описание
 Проект демонстрирует использование сетевого IDS Suricata в режиме AF_PACKET для анализа трафика на виртуальной машине с Ubuntu 24.04 и ядром Linux 6.14. Кроме того, реализована eBPF/XDP-программа на языке C для блокировки трафика от заданного IP-адреса на уровне ядра. С помощью этой связки можно одновременно вести пассивный анализ трафика (Suricata) и активно блокировать нежелательные пакеты (XDP).
 
 ---
 
-# Установка зависимостей
+1. **Установка зависимостей**
 Перед началом работы обновите списки пакетов и установите необходимые компоненты:
 ```bash
 sudo apt update
@@ -15,7 +15,8 @@ sudo apt install -y suricata clang llvm libelf-dev make iproute2 jq
 Пакет libelf-dev требуется для сборки некоторых eBPF-программ.
 Утилита iproute2 (команда ip) используется для загрузки XDP-программы на сетевой интерфейс.
 Утилита jq может понадобиться для удобного просмотра логов Suricata в формате JSON (опционально).
-Конфигурация Suricata (af-packet)
+
+2. **Конфигурация Suricata (af-packet)**
 В корне проекта находится файл suricata.yaml с настройками Suricata. Его нужно разместить в каталог /etc/suricata/. Например:
 ```bash
 sudo cp suricata.yaml /etc/suricata/suricata.yaml
@@ -62,6 +63,7 @@ sudo systemctl enable suricata
 sudo systemctl restart suricata
 ```
 
+3. **Демонстарция результата**
 После запуска Suricata начнёт анализировать трафик через интерфейс AF_PACKET. Логи обнаруженных событий будут сохраняться в /var/log/suricata/, например:
 ```bash
 tail -f /var/log/suricata/fast.log
@@ -71,6 +73,7 @@ tail -f /var/log/suricata/fast.log
 ping -c 3 <blocked_IP>
 ```
 Также вы можете просмотреть лог Suricata в формате JSON:
+
 ```bash
 tail -f /var/log/suricata/eve.json
 ```
