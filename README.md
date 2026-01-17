@@ -1,2 +1,47 @@
-# Suricata
-Practical Suricata IDS/IPS case: custom rules, traffic analysis, and reproducible lab
+Suricata
+Описание
+Проект демонстрирует использование сетевого IDS Suricata в режиме AF_PACKET для анализа трафика на виртуальной машине с Ubuntu 24.04 и ядром Linux 6.14. Кроме того, реализована eBPF/XDP-программа на языке C для блокировки трафика от заданного IP-адреса на уровне ядра. С помощью этой связки можно одновременно вести пассивный анализ трафика (Suricata) и активно блокировать нежелательные пакеты (XDP).
+Установка зависимостей
+Перед началом работы обновите списки пакетов и установите необходимые компоненты:
+sudo apt update
+sudo apt install -y suricata clang llvm libelf-dev make iproute2 jq
+- Пакет suricata установит сам IDS (включая утилиту suricata-update для управления правилами).
+- Утилиты clang и llvm нужны для компиляции XDP-программы (целевой BPF).
+- Пакет libelf-dev требуется для сборки некоторых eBPF-программ.
+- Утилита iproute2 (команда ip) используется для загрузки XDP-программы на сетевой интерфейс.
+- Утилита jq может понадобиться для удобного просмотра логов Suricata в формате JSON (опционально).
+Конфигурация Suricata (af-packet)
+В корне проекта находится файл suricata.yaml с настройками Suricata. Его нужно разместить в каталог /etc/suricata/. Например:
+sudo cp suricata.yaml /etc/suricata/suricata.yaml
+В этом файле включен раздел af-packet, который настраивает захват трафика через AF_PACKET. Пример конфигурации:
+af-packet:
+  - interface: eth0
+    cluster-id: 99
+    cluster-type: cluster_flow
+    defrag: yes
+    tpacket-v3: yes
+Замените eth0 на имя вашего сетевого интерфейса. При необходимости настройте переменную HOME_NET и другие параметры в suricata.yaml в соответствии с вашей сетью.
+Сборка и загрузка XDP программы
+Файл xdp_block.c содержит программу XDP на языке C, которая блокирует трафик от определённого IP-адреса (его можно задать прямо в коде программы или через карту eBPF). Для компиляции используем clang:
+clang -O2 -target bpf -c xdp_block.c -o xdp_block.o
+Также можно использовать предоставленный Makefile:
+make
+После успешной сборки загрузите программу в ядро на выбранный интерфейс (например, eth0):
+sudo ip link set dev eth0 xdp obj xdp_block.o
+Эта команда прикрепит XDP-программу к сетевой карте. Проверить, что программа загружена, можно командой:
+ip link show dev eth0
+Для выгрузки XDP-программы используйте:
+sudo ip link set dev eth0 xdp off
+Запуск Suricata и проверка
+Запустите Suricata с помощью вашего конфигурационного файла. Например, в интерактивном режиме:
+sudo suricata -c /etc/suricata/suricata.yaml -i eth0
+Если установлен системный сервис Suricata, можно просто перезапустить его:
+sudo systemctl enable suricata
+sudo systemctl restart suricata
+После запуска Suricata начнёт анализировать трафик через интерфейс AF_PACKET. Логи обнаруженных событий будут сохраняться в /var/log/suricata/, например:
+tail -f /var/log/suricata/fast.log
+Для проверки работы XDP-программы выполните пинг до IP-адреса, который блокируется (указан в xdp_block.c). Ответов не будет, так как пакеты должны отбрасываться на уровне ядра:
+ping -c 3 <blocked_IP>
+Также вы можете просмотреть лог Suricata в формате JSON:
+tail -f /var/log/suricata/eve.json
+________________________________________
